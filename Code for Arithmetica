@@ -1,0 +1,263 @@
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TextInput, Button, Alert, FlatList } from 'react-native';
+
+const App = () => {
+
+  const [screen, setScreen] = useState('home'); 
+  const [difficulty, setDifficulty] = useState('Apprentice');
+  const [score, setScore] = useState(0);
+  const [timeLimit, setTimeLimit] = useState(30);
+  const [question, setQuestion] = useState('');
+  const [correctAnswer, setCorrectAnswer] = useState(null);
+  const [userAnswer, setUserAnswer] = useState('');
+  const [powerUps, setPowerUps] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [timeWarpActive, setTimeWarpActive] = useState(false);
+
+  useEffect(() => {
+
+    if (timeLimit > 0 && screen === 'game') {
+      const timer = setInterval(() => {
+        setTimeLimit((prev) => prev - (timeWarpActive ? 0.5 : 1));
+      }, 1000);
+      return () => clearInterval(timer);
+    } else if (timeLimit <= 0 && screen === 'game') {
+      handleGameOver();
+    }
+  }, [timeLimit, screen, timeWarpActive]);
+
+  const handleGameOver = () => {
+
+    Alert.alert('Time’s up!', `Your score: ${score}`, [
+      { text: 'OK', onPress: () => setScreen('result') },
+    ]);
+    updateLeaderboard();
+  };
+
+  const updateLeaderboard = () => {
+
+    const newScore = { id: Math.random().toString(), score };
+    setLeaderboard((prev) => [...prev, newScore].sort((a, b) => b.score - a.score).slice(0, 5));
+
+  };
+
+  const generateQuestion = () => {
+
+    let num1, num2;
+    if (difficulty === 'Apprentice') {
+      num1 = Math.floor(Math.random() * 10) + 1;
+      num2 = Math.floor(Math.random() * 10) + 1;
+      setQuestion(`${num1} + ${num2} = ?`);
+      setCorrectAnswer(num1 + num2);
+    } else if (difficulty === 'Wizard') {
+      num1 = Math.floor(Math.random() * 10) + 1;
+      num2 = Math.floor(Math.random() * 10) + 1;
+      setQuestion(`${num1} * ${num2} = ?`);
+      setCorrectAnswer(num1 * num2);
+    } else { // Sorcerer
+      num1 = Math.floor(Math.random() * 20) + 1;
+      num2 = Math.floor(Math.random() * 10) + 1;
+      setQuestion(`${num1} - ${num2} = ?`);
+      setCorrectAnswer(num1 - num2);
+
+    }
+
+    checkForPowerUp();
+
+  };
+
+  const checkForPowerUp = () => {
+
+    if (Math.random() < 0.3) { // I imade the chance of recieving a power up 30%
+      const newPowerUp = Math.random() < 0.5 ? 'doubleScore' : 'revealAnswer';
+      setPowerUps((prev) => [...prev, newPowerUp]);
+      Alert.alert('Power-Up Earned!', `You received a power-up: ${newPowerUp === 'doubleScore' ? 'Double Score' : 'Reveal Answer'}`);
+
+    }
+
+  };
+
+  const usePowerUp = (powerUp) => {
+    if (powerUp === 'doubleScore') {
+      setScore(score * 2);
+      setPowerUps((prev) => prev.filter((pu) => pu !== powerUp));
+      Alert.alert('Power-Up Used!', 'Your score has been doubled!');
+    } else if (powerUp === 'revealAnswer') {
+      Alert.alert('Revealed Answer', `The answer is: ${correctAnswer}`);
+      setPowerUps((prev) => prev.filter((pu) => pu !== powerUp));
+    }
+  };
+
+  const checkAnswer = () => {
+    if (parseInt(userAnswer) === correctAnswer) {
+      setScore(score + 10);
+      setTimeLimit(timeLimit + 5);
+      setUserAnswer('');
+      generateQuestion();
+    } else {
+      Alert.alert('Incorrect', 'Try again!');
+      setUserAnswer('');
+    }
+  };
+
+  const resetGame = () => {
+    setScore(0);
+    setTimeLimit(30);
+    setUserAnswer('');
+    setPowerUps([]);
+    generateQuestion();
+  };
+
+  const startGame = () => {
+    setScreen('game');
+    resetGame();
+    generateQuestion();
+  };
+
+  const goToHome = () => {
+    setScreen('home');
+    resetGame();
+  };
+
+  const goToResult = () => {
+    setScreen('result');
+  };
+
+  return (
+    <View style={styles.container}>
+      {screen === 'home' && (
+
+        <>
+          <Text style={styles.title}>Welcome to Arithmetica's Quest!</Text>
+          <Text style={styles.description}>
+            Help Arithmetica master her magical arithmetic skills to pass her exam!
+          </Text>
+          <Button title="Start Training" onPress={startGame} />
+          <Button title="View Leaderboard" onPress={() => setScreen('leaderboard')} />
+        </>
+
+      )}
+
+      {screen === 'game' && (
+
+        <>
+          <Text style={styles.title}>Arithmetica's Game</Text>
+          <Text style={styles.score}>Score: {score}</Text>
+          <Text style={styles.timer}>Time Remaining: {Math.ceil(timeLimit)}s</Text>
+          <Text style={styles.question}>{question}</Text>
+          <TextInput
+            style={styles.input}
+            value={userAnswer}
+            onChangeText={setUserAnswer}
+            placeholder="Your answer"
+            keyboardType="numeric"
+
+          />
+          <Button title="Submit Answer" onPress={checkAnswer} />
+          <Button title="Use Time Warp" onPress={() => {
+            setTimeWarpActive(true);
+            setTimeout(() => setTimeWarpActive(false), 5000); 
+            Alert.alert('Time Warp Activated!', 'You have 5 seconds of slowed time.');
+          }} disabled={timeWarpActive} />
+
+          <Button title="Start New Game" onPress={resetGame} color="orange" />
+          <View style={styles.difficultyButtons}>
+            {['Apprentice', 'Wizard', 'Sorcerer'].map((level) => (
+              <Button
+                key={level}
+                title={level}
+                onPress={() => {
+                  setDifficulty(level);
+                  resetGame();
+                }}
+              />
+            ))}
+          </View>
+          <Button title="Back to Home" onPress={goToHome} color="red" />
+        </>
+      )}
+
+      {screen === 'result' && (
+        <>
+          <Text style={styles.title}>Game Over!</Text>
+          <Text style={styles.score}>Your Score: {score}</Text>
+          <Button title="Try Again" onPress={goToHome} />
+          <Button title="Back to Home" onPress={goToHome} color="red" />
+        </>
+      )}
+
+      {screen === 'leaderboard' && (
+        <>
+          <Text style={styles.title}>Leaderboard</Text>
+          <FlatList
+            data={leaderboard}
+            renderItem={({ item }) => (
+              <Text style={styles.leaderboardItem}>{item.score}</Text>
+            )}
+            keyExtractor={(item) => item.id}
+          />
+          <Button title="Back to Home" onPress={goToHome} color="red" />
+        </>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f0f8ff',
+  },
+
+  title: {
+    fontSize: 30,
+    marginBottom: 20,
+  },
+
+  description: {
+    fontSize: 18,
+    marginBottom: 40,
+    textAlign: 'center',
+  },
+
+  score: {
+    fontSize: 20,
+  },
+  timer: {
+    fontSize: 20,
+    marginBottom: 10,
+  },
+
+  question: {
+    fontSize: 24,
+    marginVertical: 20,
+  },
+
+  input: {
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    width: '80%',
+    padding: 10,
+    marginBottom: 20,
+  },
+
+  difficultyButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 20,
+  },
+
+  leaderboardItem: {
+    fontSize: 18,
+    marginVertical: 5,
+  },
+
+});
+
+export default App;
